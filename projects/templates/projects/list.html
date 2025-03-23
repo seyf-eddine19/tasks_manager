@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block extra_css %}
+{% endblock extra_css %}
+
+{% block title %} لوحة التحكم | المشاريع {% endblock %}
+
+{% block content %}
+<div class="container my-3">
+
+    <!-- 🎨 عنوان الصفحة -->
+    <div class="row">
+        <div class="col-12">
+            <div class="bg-dark text-white text-center p-4 rounded shadow-sm">
+                <h2 class="fw-bold"><i class="bi bi-folder-fill"></i> إدارة المشاريع</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🛠️ شريط الإجراءات -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center my-3">
+        <h5 class="text-muted"><i class="bi bi-list-check"></i> قائمة المشاريع</h5>
+        <a href="{% url 'project_create' %}" class="btn btn-dark rounded-pill shadow-sm">
+            <i class="bi bi-person-plus"></i> إضافة مشروع
+        </a>
+    </div>
+
+    <!-- ⚠️ رسائل التنبيهات -->
+    {% if messages %}
+        <div class="alert-container my-3">
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% endif %} shadow-sm">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="row b-g-white my-3">
+        <!-- ✅ الشبكة الخاصة بالمشاريع -->
+        {% for project in projects %}
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="card border-0 shadow-lg rounded-4 mb-3">
+                    <div class="card-header bg-secondary text-white text-center rounded-top d-flex justify-content-between gap-2"
+                        style="background: linear-gradient(135deg, #6c757d, #212529, #212529); color: white;">
+                        <h5 class="mb-0 fw-bold">{{ project.title }}</h5>
+                        <span class="badge 
+                            {% if project.status == 'قيد التنفيذ' %} bg-warning
+                            {% elif project.status == 'مكتمل' %} bg-success
+                            {% elif project.status == 'معلق' %} bg-danger
+                            {% else %} bg-secondary {% endif %}">
+                            {{ project.status }}
+                        </span>
+                    </div>
+                    <div class="card-body pt-0">
+                        <div class="d-flex justify-content-between gap-2">
+                            <p class="text-muted" style="font-size: .8rem;"><i class="bi bi-person-fill"></i> {{ project.created_by }}</p>
+                            <p class="text-muted" style="font-size: .8rem;"><i class="bi bi-calendar-event"></i> {{ project.created_at|date:"d M Y" }}</p>
+                        </div>
+                        <p class="card-text text-muted">{{ project.description|truncatewords:15 }}</p>
+                        <p class="text-muted">
+                            <i class="bi bi-bar-chart-fill"></i><strong>المرحلة الحالية:</strong>
+                            <span class="fw-bold text-success"> {{ project.current_task }}</span>
+                        </p>
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> عرض
+                            </a>
+                            <a href="{% url 'project_update' project.pk %}" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-pencil-square"></i> تعديل
+                            </a>
+                            <form method="POST" action="{% url 'project_delete' project.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm" onclick="return confirm('هل أنت متأكد من حذف هذا المشروع؟')">
+                                    <i class="bi bi-trash"></i> حذف
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12 text-center">
+                <p class="text-muted">🚀 لا يوجد مشاريع حتى الآن.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

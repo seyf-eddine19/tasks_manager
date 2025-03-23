@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %} تفاصيل المشروع - {{ project.title }} {% endblock %}
+
+{% block content %}
+<div class="container my-3">
+    <!-- بطاقة المعلومات الرئيسية -->
+    <div class="card border-0 shadow-lg rounded-4 p-4" 
+        style="background: linear-gradient(135deg, #6c757d, #212529, #212529); color: white;">
+        
+        <!-- عنوان المشروع -->
+        <div class="text-center">
+            <h2 class="fw-bold display-6">{{ project.title }}</h2>
+            <p class="lead">{{ project.description }}</p>
+        </div>
+
+        <hr class="border-white opacity-50">
+
+        <!-- تفاصيل المشروع داخل بطاقة واحدة -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center text-center text-md-start">
+            
+            <!-- الحالة -->
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle fs-4"></i>
+                <strong>الحالة:</strong>
+                <span class="badge fs-6 py-2 px-3 
+                    {% if project.status == 'قيد التنفيذ' %} bg-warning text-dark 
+                    {% elif project.status == 'مكتمل' %} bg-success 
+                    {% elif project.status == 'معلق' %} bg-danger
+                    {% else %} bg-secondary {% endif %}">
+                    {{ project.status }}
+                </span>
+            </div>
+
+            <!-- الإنشاء بواسطة -->
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-person fs-4"></i>
+                <strong>تم الإنشاء بواسطة:</strong> {{ project.created_by }}
+            </div>
+
+            <!-- تاريخ الإنشاء -->
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-calendar-event fs-4"></i>
+                <strong>تاريخ الإنشاء:</strong> {{ project.created_at|date:"d M Y" }}
+            </div>
+        </div>
+    </div>
+
+    <!-- 🛠️ شريط الإجراءات -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center my-3">
+        <h5 class="text-muted"><i class="bi bi-list-check"></i> قائمة المهام</h5>
+        <div>
+            <form method="POST" action="{% url 'project_delete' project.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger text-white rounded-pill shadow-sm" onclick="return confirm('هل أنت متأكد من حذف هذا المشروع؟')">
+                    <i class="bi bi-trash"></i> حذف المشروع 
+                </button>
+            </form>
+            <a href="{% url 'project_update' project.pk %}" class="btn btn-primary rounded-pill shadow-sm">
+                <i class="bi bi-pencil-square"></i> تعديل المشروع
+            </a>
+        </div>
+    </div>
+    
+    <!-- ⚠️ رسائل التنبيهات -->
+    {% if messages %}
+        <div class="alert-container my-3">
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-danger{% endif %} shadow-sm">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table id="usersTable" class="table table-responsive table-striped table-hover border">
+            <thead class="table-dark">
+                <tr>
+                    <th>اسم المهمة</th>
+                    <th>المسؤول</th>
+                    <th>الحالة</th>
+                    <th>تاريخ البداية</th>
+                    <th>تاريخ الانتهاء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in project.tasks.all %}
+                <tr>
+                    <td>{{ task.task_name }}</td>
+                    <td>{{ task.assigned_to|default:"غير محدد" }}</td>
+                    <td><span class="badge 
+                        {% if task.status == 'قيد التنفيذ' %} bg-warning 
+                        {% elif task.status == 'مكتمل' %} bg-success 
+                        {% elif task.status == 'معلق' %} bg-danger
+                        {% else %} bg-secondary {% endif %}">
+                        {{ task.status }}</span></td>
+                    <td>{{ task.start_date|default:"-" }}</td>
+                    <td>{{ task.end_date|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">لا توجد مهام مرتبطة بهذا المشروع.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

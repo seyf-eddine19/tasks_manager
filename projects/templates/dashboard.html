@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container my-3">
+    <h2 class="my-4">🚀 مرحبًا، {{ user.username }}</h2>
+    <hr class="mb-4">
+    <div class="row g-3">
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-dark text-center p-3">
+                <h5><i class="bi bi-bar-chart"></i> المشاريع</h5>
+                <h3>{{ total_projects }}</h3>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-dark text-center p-3">
+                <h5><i class="bi bi-check2-circle"></i> المهام المكتملة</h5>
+                <h3>{{ completed_tasks }}</h3>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card text-white bg-dark text-center p-3">
+                <h5><i class="bi bi-people"></i> المستخدمون</h5>
+                <h3>{{ total_users }}</h3>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 d-flex flex-column gap-2">
+            <a href="{% url 'task_list' %}" class="btn btn-danger btn-lg w-100"><i class="bi bi-bell"></i> عرض المهام</a>
+            <a href="{% url 'project_create' %}" class="btn btn-primary btn-lg w-100">+ إضافة مشروع</a>
+        </div>
+    </div>
+
+    <!-- <div class="row mt-4">    
+        <div class="col-md-6 ">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-person-circle"></i> معلومات المستخدم
+                </div>
+                <div class="card-body">
+                    <p><i class="bi bi-envelope"></i> البريد الإلكتروني: <strong>{{ user.email }}</strong></p>
+                    <p><i class="bi bi-telephone"></i> الهاتف: <strong>{{ user.profile.phone }}</strong></p>
+                    <p><i class="bi bi-whatsapp"></i> واتساب: <strong>{{ user.profile.whatsapp }}</strong></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white"><i class="bi bi-folder"></i> المشاريع</div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        {% for project in projects %}
+                        <li class="list-group-item">{{ project.title }}</li>
+                        {% empty %}
+                        <li class="list-group-item text-muted">لا توجد مشاريع</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    {% if user.is_superuser %}
+    <div class="container mt-3">
+        <div class="row">
+            {% for u in user_task_stats %}
+            <div class="col-lg-6 col-md-6 col-sm-12 px-2">
+                <div class="card user-card my-2 shadow-lg">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold"><i class="bi bi-person-circle"></i> {{ u.username }}</h5>
+                        <span class="badge {% if u.completion_rate >= 80 %} bg-success 
+                                            {% elif u.completion_rate >= 50 %} bg-warning
+                                            {% else %} bg-danger {% endif %}">
+                            <i class="bi bi-fire"></i> {{ u.completion_rate|floatformat:0 }}%
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-box p-2 rounded">
+                            <div class="row text-center">
+                                <div class="col">
+                                    <h6 class="text-primary"><i class="bi bi-list-task"></i> إجمالي</h6>
+                                    <p class="fw-bold mb-1">{{ u.total_tasks }}</p>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-success"><i class="bi bi-check-circle"></i> مكتملة</h6>
+                                    <p class="fw-bold mb-1">{{ u.completed_tasks }}</p>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-warning"><i class="bi bi-hourglass-split"></i> قيد التنفيذ</h6>
+                                    <p class="fw-bold mb-1">{{ u.inprogress_tasks }}</p>
+                                </div>
+                                <div class="col">
+                                    <h6 class="text-danger"><i class="bi bi-exclamation-circle"></i> معلقة</h6>
+                                    <p class="fw-bold mb-1">{{ u.hold_tasks }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="progress mt-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated 
+                                        {% if u.completion_rate >= 80 %} bg-success 
+                                        {% elif u.completion_rate >= 50 %} bg-warning 
+                                        {% else %} bg-danger {% endif %}" 
+                                 role="progressbar" style="width: {{ u.completion_rate|floatformat:0 }}%">
+                                {{ u.completion_rate|floatformat:0 }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center">
+                <p class="text-muted mt-4"><i class="bi bi-emoji-frown"></i> لا يوجد بيانات متاحة حاليًا</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
