@@ -21,6 +21,7 @@ urlpatterns = [
     path('projects/<int:pk>/delete/', views.ProjectDeleteView.as_view(), name='project_delete'),
 
     path('tasks/', views.TaskListView.as_view(), name='task_list'),
+    path('send_whatsapp/<str:phone_number>/<str:message>/', views.send_whatsapp, name='send_whatsapp'),
 ]
 
 handler403 = 'projects.views.custom_403'

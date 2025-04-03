@@ -306,6 +306,35 @@ class ProjectFormView(PermissionRequiredMixin, FormViewMixin):
 
 
 # Task Views
+from urllib.parse import quote
+
+def send_whatsapp(request, phone_number, message):
+    """
+    إعادة توجيه المستخدم إلى واتساب لفتح المحادثة مباشرة.
+    """
+    encoded_message = quote(message)  # تحويل النص إلى صيغة URL
+    whatsapp_url = f"https://wa.me/{phone_number}/?text={encoded_message}"
+    return redirect(whatsapp_url)
+
+
+from urllib.parse import quote
+
+def send_whatsapp(request, phone_number, message):
+    """
+    عرض صفحة تحتوي على أزرار لفتح WhatsApp أو العودة إلى قائمة المهام.
+    """
+    # ترميز الرسالة لتكون متوافقة مع URL
+    encoded_message = quote(message)
+    whatsapp_url = f"https://wa.me/{phone_number}/?text={encoded_message}"
+
+    context = {
+        'whatsapp_url': whatsapp_url,
+        'task_list_url': reverse('task_list')  # رابط العودة إلى صفحة المهام
+    }
+    
+    return render(request, 'tasks/send_whatsapp.html', context)
+
+
 class TaskListView(ListView):
     model = Task
     template_name = 'tasks/list.html'
@@ -375,3 +404,43 @@ class TaskListView(ListView):
                     messages.warning(request, f"بعض المهام معلقة، تم تعليق المشروع {project}!")
 
         return redirect("task_list")
+    def post(self, request, *args, **kwargs):
+        task_id = request.POST.get("task_id")
+        action = request.POST.get("action")
+    
+        if task_id and action:
+            task = get_object_or_404(Task, pk=task_id, assigned_to=request.user)
+            if task:
+                project = task.project
+                if action == "complete" and task.status in ["قيد التنفيذ", "معلق"]:
+                    total_tasks = project.tasks.count()
+                    completed_tasks = project.tasks.filter(status="مكتمل").count() + 1  
+    
+                    task.status = "مكتمل"
+                    task.save()
+                    messages.success(request, "تم إكمال المهمة!")
+    
+                    if completed_tasks == total_tasks:
+                        project.status = "مكتمل"
+                        project.save()
+                        messages.success(request, f"تم إكمال جميع مهام المشروع {project}!")
+                    else:
+                        project.status = "قيد التنفيذ"
+                        project.save()
+                    
+                    # 🔹 إرسال إشعار عبر واتساب إذا كانت هناك مهمة جديدة
+                    next_task = project.tasks.filter(status="قيد التنفيذ").order_by('id').first()
+                    if next_task and next_task.assigned_to:
+                        phone_number = next_task.assigned_to.profile.whatsapp_number
+                        message_body = f"لديك مهمة جديدة: {next_task.task_name} في مشروع {next_task.project.title}."
+                        return redirect(reverse('send_whatsapp', args=[phone_number, message_body]))
+    
+                elif action == "hold" and task.status == "قيد التنفيذ":
+                    task.status = "معلق"
+                    project.status = "معلق"
+                    task.save()
+                    project.save()
+                    messages.warning(request, f"بعض المهام معلقة، تم تعليق المشروع {project}!")
+    
+        return redirect("task_list")
+    

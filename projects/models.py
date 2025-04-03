@@ -1,8 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-from .utils import send_whatsapp_message
+from django.urls import reverse
+from django.shortcuts import redirect
 
 
 # Extending User Model
@@ -112,13 +112,9 @@ class Task(models.Model):
                 next_task.status = "قيد التنفيذ"
                 next_task.start_date = timezone.now().date()
                 next_task.save()
-
-                recipient_number = f"whatsapp:+{next_task.assigned_to.profile.whatsapp_number}"
-                message_body = f"لديك مهمة {next_task}"
-                print(recipient_number)
-                send_whatsapp_message(recipient_number, message_body)
-                     
+        
         super().save(*args, **kwargs)
+
 
     def __str__(self):
         return f"{self.task_name} ({self.status}) - {self.project.title}"
