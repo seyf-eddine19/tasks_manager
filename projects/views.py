@@ -7,6 +7,7 @@ from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.forms import PasswordChangeForm
+from django.db.models import Count, Case, When, IntegerField, F, Q
 
 from django.views.generic import TemplateView, RedirectView, ListView, FormView, DetailView, DeleteView
 
@@ -28,146 +29,33 @@ class IndexView(LoginRequiredMixin, TemplateView):
     """عرض الصفحة الرئيسية"""
     template_name = 'index.html'
 
-from django.db import models
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
 
-from django.shortcuts import render
-from django.contrib.auth.models import User
-from django.utils.timezone import now
-from .models import Project, Task
+        # البيانات العامة
+        context["total_projects"] = Project.objects.count()
+        context["total_tasks"] = Task.objects.count()
+        context["completed_tasks"] = Task.objects.filter(status="مكتمل").count()
+        in_progress_tasks = Task.objects.filter(status="قيد التنفيذ").count()
+        pending_tasks = Task.objects.filter(status="معلق").count()
+        context["total_users"] = User.objects.count()
 
-def dashboard_view(request):
-    user = request.user
+        # حساب نسبة المهام المكتملة لكل مستخدم
+        context["user_task_stats"] = User.objects.annotate(
+            total_tasks=Count(Case(When(Q(task__status="قيد التنفيذ") | Q(task__status="مكتمل") | Q(task__status="معلق"), then=1), output_field=IntegerField())),
+            notstart_tasks=Count(Case(When(task__status="لم يبدأ بعد", then=1), output_field=IntegerField())),
+            inprogress_tasks=Count(Case(When(task__status="قيد التنفيذ", then=1), output_field=IntegerField())),
+            hold_tasks=Count(Case(When(task__status="معلق", then=1), output_field=IntegerField())),
+            completed_tasks=Count(Case(When(task__status="مكتمل", then=1), output_field=IntegerField()))
+        ).annotate(
+            completion_rate=F('completed_tasks') * 100.0 / F('total_tasks')
+        ).order_by('-completion_rate')
 
-    # البيانات العامة
-    total_projects = Project.objects.count()
-    total_tasks = Task.objects.count()
-    total_users = User.objects.count()
+        context["projects"] = Project.objects.all()
+        context["user"] = user
 
-    # حساب عدد المشاريع وفقًا لحالتها
-    project_status_counts = Project.objects.values('status').annotate(count=models.Count('status'))
-    task_status_counts = Task.objects.values('status').annotate(count=models.Count('status'))
-
-    # بيانات حسب الشهر الحالي
-    new_projects_this_month = Project.objects.filter(created_at__month=now().month).count()
-    completed_tasks_this_month = Task.objects.filter(status="مكتمل", end_date__month=now().month).count()
-
-    # تصنيف المهام
-    completed_tasks = Task.objects.filter(status="مكتمل").count()
-    in_progress_tasks = Task.objects.filter(status="قيد التنفيذ").count()
-    pending_tasks = Task.objects.filter(status="معلق").count()
-
-    # بيانات المستخدم
-    if user.is_superuser:
-        users = User.objects.all()
-        user_projects = None
-        user_tasks = None
-        user_notifications = None
-        completed_user_tasks = None
-    else:
-        users = None
-        user_projects = Project.objects.filter(created_by=user).count()
-        user_tasks = Task.objects.filter(assigned_to=user)
-        completed_user_tasks = user_tasks.filter(status="مكتمل").count()
-        user_notifications = 5  # يمكنك استبدالها بنظام إشعارات حقيقي
-
-    context = {
-        "user": user,
-        "total_projects": total_projects,
-        "total_tasks": total_tasks,
-        "total_users": total_users,
-        "project_status_counts": project_status_counts,
-        "task_status_counts": task_status_counts,
-        "new_projects_this_month": new_projects_this_month,
-        "completed_tasks_this_month": completed_tasks_this_month,
-        "completed_tasks": completed_tasks,
-        "in_progress_tasks": in_progress_tasks,
-        "pending_tasks": pending_tasks,
-        "users": users,
-        "user_projects": user_projects,
-        "user_tasks": user_tasks,
-        "completed_user_tasks": completed_user_tasks,
-        "user_notifications": user_notifications,
-    }
-    
-    return render(request, "dashboard.html", context)
-
-from django.shortcuts import render
-from django.contrib.auth.models import User
-from django.utils.timezone import now
-from django.db.models import Count, Value, Case, When, IntegerField, FloatField, F, Q
-from .models import Project, Task
-from django.db.models.functions import Coalesce
-
-def dashboard_view(request):
-    user = request.user
-
-    # البيانات العامة
-    total_projects = Project.objects.count()
-    total_tasks = Task.objects.count()
-    total_users = User.objects.count()
-
-    # حساب عدد المشاريع وفقًا لحالتها
-    project_status_counts = Project.objects.values('status').annotate(count=Count('status'))
-    task_status_counts = Task.objects.values('status').annotate(count=Count('status'))
-
-    # بيانات الشهر الحالي
-    new_projects_this_month = Project.objects.filter(created_at__month=now().month).count()
-    completed_tasks_this_month = Task.objects.filter(status="مكتمل", end_date__month=now().month).count()
-
-    # تصنيف المهام
-    completed_tasks = Task.objects.filter(status="مكتمل").count()
-    in_progress_tasks = Task.objects.filter(status="قيد التنفيذ").count()
-    pending_tasks = Task.objects.filter(status="معلق").count()
-
-    # حساب نسبة المهام المكتملة لكل مستخدم
-    user_task_stats = User.objects.annotate(
-        total_tasks=Count(Case(When(Q(task__status="قيد التنفيذ") | Q(task__status="مكتمل"), then=1), output_field=IntegerField())),
-        notstart_tasks=Count(Case(When(task__status="لم يبدأ بعد", then=1), output_field=IntegerField())),
-        inprogress_tasks=Count(Case(When(task__status="قيد التنفيذ", then=1), output_field=IntegerField())),
-        hold_tasks=Count(Case(When(task__status="معلق", then=1), output_field=IntegerField())),
-        completed_tasks=Count(Case(When(task__status="مكتمل", then=1), output_field=IntegerField()))
-    ).annotate(
-        completion_rate=F('completed_tasks') * 100.0 / F('total_tasks')
-    ).order_by('-completion_rate')
-
-
-    # بيانات المستخدم الحالي
-    if user.is_superuser:
-        users = User.objects.all()
-        user_projects = None
-        user_tasks = None
-        user_notifications = None
-        completed_user_tasks = None
-        user_projects = Project.objects.all()
-        user_tasks = Task.objects.filter(assigned_to=user)
-    else:
-        users = None
-        user_projects = Project.objects.all()
-        user_tasks = Task.objects.filter(assigned_to=user)
-        completed_user_tasks = user_tasks.filter(status="مكتمل").count()
-        user_notifications = 5  # يمكن تغييره بنظام إشعارات حقيقي
-
-    context = {
-        "user": user,
-        "total_projects": total_projects,
-        "total_tasks": total_tasks,
-        "total_users": total_users,
-        "project_status_counts": project_status_counts,
-        "task_status_counts": task_status_counts,
-        "new_projects_this_month": new_projects_this_month,
-        "completed_tasks_this_month": completed_tasks_this_month,
-        "completed_tasks": completed_tasks,
-        "in_progress_tasks": in_progress_tasks,
-        "pending_tasks": pending_tasks,
-        "users": users,
-        "projects": user_projects,
-        "user_tasks": user_tasks,
-        "completed_user_tasks": completed_user_tasks,
-        "user_notifications": user_notifications,
-        "user_task_stats": user_task_stats,  # نسبة المهام المكتملة لكل مستخدم
-    }
-    
-    return render(request, "dashboard.html", context)
+        return context
 
 class LogoutView(LoginRequiredMixin, RedirectView):
     """تسجيل الخروج وإعادة التوجيه لصفحة تسجيل الدخول"""
@@ -213,6 +101,7 @@ class ProfileView(LoginRequiredMixin, FormView):
             return self.form_valid(form)
 
         return self.form_invalid(form)
+
 
 # Form Views Mixin
 class FormViewMixin(FormView):
@@ -266,6 +155,7 @@ class FormViewMixin(FormView):
         """Handle invalid form submissions."""
         messages.error(self.request, "حدث خطأ أثناء حفظ البيانات. يرجى التحقق من المدخلات.")
         return super().form_invalid(form)
+
 
 # User Views
 class UserListView(PermissionRequiredMixin, ListView):
@@ -391,18 +281,29 @@ class ProjectFormView(PermissionRequiredMixin, FormViewMixin):
             context = self.get_context_data()
             task_formset = context.get('task_formset')
     
-            task_formset = TaskFormSet(self.request.POST, instance=obj) 
-            if task_formset:
-                task_formset.instance = obj
-                if task_formset.is_valid():
-                    task_formset.save()
-                else:
-                    messages.error(self.request, f"حدث خطأ أثناء حفظ المهام. يرجى تحديد المسؤول عن كل مهمة.")
-                    return redirect(reverse('project_update', kwargs={'pk': obj.pk}))
+            if task_formset.is_valid():
+                # التحقق من تعيين المسؤول عن كل مهمة
+                for form in task_formset:
+                    if not form.cleaned_data.get('assigned_to'):
+                        messages.error(self.request, "يجب تعيين مسؤول لكل مهمة.")
+                        return redirect(reverse('project_update', kwargs={'pk': obj.pk}))
+                task_formset.save()
+    
+                # بدء أول مهمة تلقائيًا إن لم تكن هناك مهام قيد التنفيذ
+                tasks = obj.tasks.all()
+                if tasks.exists() and all(task.status == 'لم يبدأ بعد' for task in tasks):
+                    first_task = tasks.order_by('id').first()
+                    if first_task:
+                        first_task.status = 'قيد التنفيذ'
+                        first_task.save(update_fields=['status', 'start_date'])
+    
+            else:
+                messages.error(self.request, "حدث خطأ أثناء حفظ المهام.")
+                return redirect(reverse('project_update', kwargs={'pk': obj.pk}))
     
         messages.success(self.request, "تم تحديث المشروع بنجاح!" if is_update else "تم إضافة المشروع بنجاح!")
-    
         return redirect(reverse('project_update', kwargs={'pk': obj.pk}))
+
 
 # Task Views
 class TaskListView(ListView):
@@ -414,6 +315,22 @@ class TaskListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter_form"] = self.filter_form
+        
+        # 🔹 تقسيم المهام حسب المشروع ثم الحالة
+        grouped_tasks = {}
+        for task in self.get_queryset():
+            project_title = task.project.title
+            status = task.status
+            
+            if project_title not in grouped_tasks:
+                grouped_tasks[project_title] = {}
+
+            if status not in grouped_tasks[project_title]:
+                grouped_tasks[project_title][status] = []
+
+            grouped_tasks[project_title][status].append(task)
+
+        context["grouped_tasks"] = grouped_tasks
         return context
     
     def get_queryset(self):
@@ -425,7 +342,6 @@ class TaskListView(ListView):
             queryset = queryset.filter(status__in=status_filter) if status_filter else queryset
 
         return queryset.order_by('-start_date', '-id')
-
 
     def post(self, request, *args, **kwargs):
         """Handles task status update from buttons"""

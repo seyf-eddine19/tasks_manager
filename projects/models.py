@@ -56,15 +56,17 @@ class Project(models.Model):
 
         if is_new:
             self.create_default_tasks()  # إنشاء المهام تلقائيًا عند إنشاء مشروع جديد
-        else:
-            # تحقق مما إذا كانت جميع المهام لم تبدأ بعد
-            tasks = self.tasks.all()
-            if tasks.exists() and all(task.status == 'لم يبدأ بعد' for task in tasks):
-                first_task = tasks.order_by('id').first()
-                if first_task:
-                    first_task.status = 'قيد التنفيذ'
-                    first_task.start_date = timezone.now().date()
-                    first_task.save()
+        # else:
+        #     # تحقق مما إذا كانت جميع المهام لم تبدأ بعد
+        #     tasks = self.tasks.all()
+        #     if tasks.exists() and all(task.status == 'لم يبدأ بعد' for task in tasks):
+        #         first_task = tasks.order_by('id').first()
+            
+        #         if first_task and first_task.assigned_to is not None:
+        #             print(first_task.status)
+        #             first_task.status = 'قيد التنفيذ'
+        #             first_task.start_date = timezone.now().date()
+        #             first_task.save(update_fields=['assigned_to', 'status', 'start_date']) 
 
     def __str__(self):
         return self.title
@@ -94,7 +96,6 @@ class Task(models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
 
-
     def save(self, *args, **kwargs):
         # تحديث تاريخ البدء عند تعيين المهمة "قيد التنفيذ"
         if self.status == "قيد التنفيذ":
@@ -117,8 +118,7 @@ class Task(models.Model):
                 print(recipient_number)
                 send_whatsapp_message(recipient_number, message_body)
                      
-
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.project.title} - {self.task_name} ({self.status})"
+        return f"{self.task_name} ({self.status}) - {self.project.title}"
