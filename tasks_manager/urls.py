@@ -1,5 +1,5 @@
 """
-URL configuration for content_manager project.
+URL configuration for tasks_manager project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.1/topics/http/urls/
