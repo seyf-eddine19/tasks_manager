@@ -1,2 +1,4 @@
-Django==5.1.7
-twilio==9.5.1
+Django>=5.1,<6.0
+firebase-admin
+gunicorn
+whitenoise
