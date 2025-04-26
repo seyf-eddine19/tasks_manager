@@ -7,17 +7,17 @@ from .models import Project, Task, UserProfile
 class UserForm(forms.ModelForm):
     password = forms.CharField(
         widget=forms.PasswordInput,
-        required=True,
+        required=True, 
         label="كلمة المرور:"
     )
 
     whatsapp_number = forms.CharField(
-        max_length=15,
-        required=False,
-        label="رقم الواتساب:",
         widget=forms.TextInput(attrs={'class': 'form-control'}),
+        max_length=15,
+        required=True,
+        label="رقم الواتساب:",
     )
-
+    
     class Meta:
         model = User
         fields = [
@@ -37,9 +37,39 @@ class UserForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and hasattr(self.instance, 'profile'):
-            self.fields['whatsapp_number'].initial = self.instance.profile.whatsapp_number
-       
+        self.fields['password'].initial = ''
+        if self.instance.pk:
+            self.fields['password'].required = False
+            self.fields["password"].help_text = "اترك هذا الحقل فارغًا إذا كنت لا تريد تغيير كلمة المرور."
+            if hasattr(self.instance, 'profile'):
+                self.fields['whatsapp_number'].initial = self.instance.profile.whatsapp_number
+
+    def clean_username(self):
+        if self.instance.pk:
+            return self.instance.username
+        return self.cleaned_data.get("username")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+
+        if password:
+            if len(password) < 8:
+                raise forms.ValidationError("كلمة المرور يجب أن تكون 8 أحرف على الأقل.")
+        return cleaned_data
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        password = self.cleaned_data.get("password")
+        if password:
+            user.set_password(password)
+
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        profile.whatsapp_number = self.cleaned_data.get('whatsapp_number')
+        profile.save()
+
+        return user
 
 class ProfileForm(forms.ModelForm):
     whatsapp_number = forms.CharField(
@@ -51,7 +81,7 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email']
+        fields = ['first_name', 'last_name', 'email', 'whatsapp_number']
         widgets = {
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),

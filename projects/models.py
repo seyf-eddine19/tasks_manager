@@ -106,8 +106,17 @@ class Task(models.Model):
             self.end_date = timezone.now().date()
 
             # البحث عن المهمة التالية التي لم تبدأ بعد
-
             next_task = self.project.tasks.filter(status="لم يبدأ بعد").order_by('id').first()
+            current_task = self.task_name
+            current_task_index = self.TASK_CHOICES.index((current_task, current_task))
+
+            # حدد المهمة التالية حسب ترتيب القائمة
+            next_task_type = self.TASK_CHOICES[current_task_index + 1][0] if current_task_index + 1 < len(self.TASK_CHOICES) else None
+
+            # إذا تم العثور على نوع المهمة التالية، ابحث عنها في قاعدة البيانات
+            if next_task_type:
+                next_task = self.project.tasks.filter(task_name=next_task_type).order_by('id').first()
+
             if next_task:
                 next_task.status = "قيد التنفيذ"
                 next_task.start_date = timezone.now().date()

