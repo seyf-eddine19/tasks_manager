@@ -64,6 +64,8 @@ class UserForm(forms.ModelForm):
         password = self.cleaned_data.get("password")
         if password:
             user.set_password(password)
+   
+        user.save()
 
         profile, created = UserProfile.objects.get_or_create(user=user)
         profile.whatsapp_number = self.cleaned_data.get('whatsapp_number')
