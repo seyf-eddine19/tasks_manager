@@ -43,20 +43,23 @@ class IndexView(LoginRequiredMixin, TemplateView):
 
         # حساب نسبة المهام المكتملة لكل مستخدم
         context["user_task_stats"] = User.objects.annotate(
-            total_tasks=Count(Case(When(Q(task__status="قيد التنفيذ") | Q(task__status="مكتمل") | Q(task__status="معلق"), then=1), output_field=IntegerField())),
+            total_tasks=Count(Case(When(Q(task__status="قيد التنفيذ") | Q(task__status="مكتمل") | Q(task__status="معلق") | Q(task__status="لم يبدأ بعد"), then=1), output_field=IntegerField())),
             notstart_tasks=Count(Case(When(task__status="لم يبدأ بعد", then=1), output_field=IntegerField())),
             inprogress_tasks=Count(Case(When(task__status="قيد التنفيذ", then=1), output_field=IntegerField())),
             hold_tasks=Count(Case(When(task__status="معلق", then=1), output_field=IntegerField())),
             completed_tasks=Count(Case(When(task__status="مكتمل", then=1), output_field=IntegerField()))
         ).annotate(
-            completion_rate=F('completed_tasks') * 100.0 / F('total_tasks')
+            completion_rate=Case(
+                When(total_tasks__gt=0, then=F('completed_tasks') * 100.0 / F('total_tasks')),
+                default=Value(0),
+                output_field=FloatField()
+            )
         ).order_by('-completion_rate')
 
         context["projects"] = Project.objects.all()
         context["user"] = user
 
         return context
-
 
 class LogoutView(LoginRequiredMixin, RedirectView):
     """تسجيل الخروج وإعادة التوجيه لصفحة تسجيل الدخول"""
