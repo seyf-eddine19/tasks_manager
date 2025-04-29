@@ -33,6 +33,28 @@ class TaskAdmin(admin.ModelAdmin):
     list_filter = ('status', 'start_date', 'end_date')
     ordering = ('-start_date',)
 
+def create_superuser_view(request):
+    if request.method == "POST":
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+
+        if get_user_model().objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists. Please choose a different username.')
+        else:
+            try:
+                get_user_model().objects.create_superuser(
+                    username=username,
+                    email=email,
+                    password=password
+                )
+                messages.success(request, 'Superuser created successfully.')
+                return redirect('/admin/login/')
+            except Exception as e:
+                messages.error(request, f'Error creating superuser: {e}')
+
+    return render(request, 'admin/create_superuser.html')
+
 # Register Models
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(Project, ProjectAdmin)
