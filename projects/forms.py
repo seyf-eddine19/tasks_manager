@@ -62,7 +62,7 @@ class UserForm(forms.ModelForm):
         user = super().save(commit=False)
 
         password = self.cleaned_data.get("password")
-        if password:
+        if password and password.strip():
             user.set_password(password)
    
         user.save()
