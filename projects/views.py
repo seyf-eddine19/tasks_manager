@@ -7,7 +7,7 @@ from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.forms import PasswordChangeForm
-from django.db.models import Count, Case, When, IntegerField, F, Q
+from django.db.models import Count, Case, When, Value, F, IntegerField, FloatField
 
 from django.views.generic import TemplateView, RedirectView, ListView, FormView, DetailView, DeleteView
 
