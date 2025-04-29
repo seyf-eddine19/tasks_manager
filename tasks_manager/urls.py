@@ -16,8 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from projects.admin import create_superuser_view  
 
 urlpatterns = [
+    path('create-superuser/', create_superuser_view, name='create_superuser'),
     path('admin/', admin.site.urls),
     path('', include('projects.urls')),
 ]
