@@ -62,9 +62,14 @@ class UserForm(forms.ModelForm):
         user = super().save(commit=False)
 
         password = self.cleaned_data.get("password")
-        if password and password.strip():
+        if password:
             user.set_password(password)
    
+        else:
+            if user.pk:
+                old_user = User.objects.get(pk=user.pk)
+                user.password = old_user.password
+
         user.save()
 
         profile, created = UserProfile.objects.get_or_create(user=user)
