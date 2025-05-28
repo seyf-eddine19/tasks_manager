@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>إدارة البيانات</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .danger { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #cce5ff; color: #004085; }
+        button { padding: 10px 15px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <h1>إدارة البيانات</h1>
+
+    {% if message %}
+        <div class="message {{ status }}">{{ message }}</div>
+    {% endif %}
+
+    <form method="get" action="{% url 'export_all_data' %}">
+        <input type="hidden" name="key" value="{{ key }}">
+        <button type="submit">تنزيل كل البيانات</button>
+    </form>
+
+    <hr>
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'import_all_data' %}?key={{ key }}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">رفع البيانات</button>
+    </form>
+</body>
+</html>
