@@ -4,6 +4,9 @@ from django.contrib.auth.models import User, Group, Permission
 from .models import Project, Task, UserProfile
 
 
+class UploadFileForm(forms.Form):
+    file = forms.FileField(label="تحميل ملف JSON")
+
 class UserForm(forms.ModelForm):
     password = forms.CharField(
         widget=forms.PasswordInput,
