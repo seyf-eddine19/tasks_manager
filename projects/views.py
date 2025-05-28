@@ -16,6 +16,89 @@ from .forms import (
     UserForm, ProfileForm , ProjectForm, TaskForm, TaskFilterForm
 )
 
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
+from django.shortcuts import render
+from django.core import serializers
+from django.core.serializers import deserialize
+from django.apps import apps
+from .forms import UploadFileForm
+import json
+
+SECRET_KEY = 'SECRET123'  # مفتاح الوصول
+
+def data_portal(request):
+    key = request.GET.get('key')
+    if key != SECRET_KEY:
+        return HttpResponseForbidden("Access denied")
+
+    message = request.GET.get('message')
+    status = request.GET.get('status', 'info')
+
+    form = UploadFileForm()
+    return render(request, 'data_portal.html', {
+        'form': form,
+        'message': message,
+        'status': status,
+        'key': key
+    })
+
+def export_all_data(request):
+    key = request.GET.get('key')
+    if key != SECRET_KEY:
+        return HttpResponseForbidden("Access denied")
+
+    all_models = apps.get_models()
+    data = {}
+
+    for model in all_models:
+        model_name = model._meta.model_name
+        app_label = model._meta.app_label
+        full_model_name = f"{app_label}.{model_name}"
+
+        queryset = model.objects.all()
+        serialized = serializers.serialize("json", queryset, ensure_ascii=False)  # لدعم العربية
+        data[full_model_name] = json.loads(serialized)  # نحول السلسلة إلى JSON حقيقي ليسهل تنسيقه لاحقًا
+
+    pretty_data = json.dumps(data, indent=4, ensure_ascii=False)  # تنسيق جميل + دعم العربية
+
+    response = HttpResponse(pretty_data, content_type='application/json; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="backup.json"'
+    return response
+
+def import_all_data(request):
+    key = request.GET.get('key')
+    if key != SECRET_KEY:
+        return HttpResponseForbidden("Access denied")
+
+    if request.method == 'POST':
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                file = request.FILES['file']
+                data = json.load(file)
+
+                for full_model_name, objects in data.items():
+                    app_label, model_name = full_model_name.split('.')
+                    model = apps.get_model(app_label=app_label, model_name=model_name)
+                    json_data = json.dumps(objects, ensure_ascii=False)
+                    for obj in deserialize("json", json_data):
+                        obj.save()
+
+                return render(request, 'data_portal.html', {
+                    'form': UploadFileForm(),
+                    'message': '✅ تم استيراد البيانات بنجاح',
+                    'status': 'success',
+                    'key': key
+                })
+            except Exception as e:
+                return render(request, 'data_portal.html', {
+                    'form': UploadFileForm(),
+                    'message': f'❌ فشل الاستيراد: {str(e)}',
+                    'status': 'danger',
+                    'key': key
+                })
+
+
 def custom_403(request, exception):
     return render(request, '403.html', {}, status=403)
 
