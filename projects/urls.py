@@ -22,6 +22,10 @@ urlpatterns = [
 
     path('tasks/', views.TaskListView.as_view(), name='task_list'),
     path('send_whatsapp/<str:phone_number>/<str:message>/', views.send_whatsapp, name='send_whatsapp'),
+
+    path('data-portal/', views.data_portal, name='data_portal'),
+    path('export/', views.export_all_data, name='export_all_data'),
+    path('import/', views.import_all_data, name='import_all_data'),
 ]
 
 handler403 = 'projects.views.custom_403'
